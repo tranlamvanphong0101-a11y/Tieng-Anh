@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dịch Song Song</title>
+<meta name="description" content="Dịch tiếng Anh sang tiếng Việt theo thời gian thực khi người khác đang nói.">
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #16181d; --muted: #6b7280;
+    --line: #e5e7eb; --accent: #2563eb; --accent-2: #dbeafe; --danger: #dc2626;
+    --en: #374151; --vi: #0f172a; --interim: #9ca3af;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1116; --panel: #161a21; --text: #e6e8eb; --muted: #9aa3af;
+      --line: #262b34; --accent: #60a5fa; --accent-2: #1e293b; --danger: #f87171;
+      --en: #cbd5e1; --vi: #f8fafc; --interim: #6b7280;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column;
+  }
+  header {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  h1 { font-size: 18px; margin: 0 auto 0 0; }
+  button, select {
+    font: inherit; font-size: 14px; border: 1px solid var(--line); background: var(--panel);
+    color: var(--text); border-radius: 8px; padding: 8px 12px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  #toggle {
+    background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600;
+    min-width: 130px;
+  }
+  #toggle.on { background: var(--danger); border-color: var(--danger); }
+  label.chk { display: flex; gap: 6px; align-items: center; font-size: 14px; color: var(--muted); }
+  #status { font-size: 13px; color: var(--muted); padding: 6px 16px; display: flex; gap: 8px; align-items: center; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .dot.live { background: var(--danger); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  main {
+    flex: 1; overflow-y: auto; padding: 8px 16px 24px;
+    max-width: 960px; width: 100%; margin: 0 auto;
+  }
+  .row {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 14px; margin: 10px 0;
+  }
+  .row .en { color: var(--en); font-size: calc(var(--fs) * .8); line-height: 1.45; }
+  .row .vi { color: var(--vi); font-size: var(--fs); font-weight: 600; line-height: 1.45; margin-top: 4px; }
+  .row.interim { border-style: dashed; }
+  .row.interim .en, .row.interim .vi { color: var(--interim); }
+  .row .time { font-size: 11px; color: var(--muted); float: right; margin-left: 8px; }
+  .empty { color: var(--muted); text-align: center; margin-top: 15vh; line-height: 1.7; padding: 0 16px; }
+  .empty b { color: var(--text); }
+  main.split { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  main.split .row { display: contents; }
+  main.split .row > div {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 14px; margin: 6px 0;
+  }
+  main.split .row .vi { margin-top: 6px; }
+  main.split .row .time { display: none; }
+  main.split .empty { grid-column: 1 / -1; }
+  @media (max-width: 640px) {
+    h1 { width: 100%; }
+    main.split { display: block; }
+    main.split .row { display: block; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎙️ Dịch Song Song EN → VI</h1>
+  <button id="toggle">▶ Bắt đầu</button>
+  <select id="accent" title="Giọng người nói">
+    <option value="en-US">Anh-Mỹ</option>
+    <option value="en-GB">Anh-Anh</option>
+    <option value="en-AU">Anh-Úc</option>
+    <option value="en-IN">Anh-Ấn</option>
+  </select>
+  <select id="fontsize" title="Cỡ chữ">
+    <option value="18px">Chữ nhỏ</option>
+    <option value="22px" selected>Chữ vừa</option>
+    <option value="28px">Chữ lớn</option>
+    <option value="36px">Chữ rất lớn</option>
+  </select>
+  <select id="layout" title="Bố cục">
+    <option value="stack">Xếp chồng</option>
+    <option value="split">Hai cột</option>
+  </select>
+  <label class="chk"><input type="checkbox" id="speak"> Đọc bản dịch</label>
+  <button id="download">⬇ Tải về</button>
+  <button id="clear">🗑 Xoá</button>
+</header>
+<div id="status"><span class="dot" id="dot"></span><span id="statusText">Sẵn sàng</span></div>
+<main id="log">
+  <div class="empty" id="empty">
+    Bấm <b>▶ Bắt đầu</b> và cho phép dùng micro.<br>
+    Khi người khác nói tiếng Anh, bản dịch tiếng Việt sẽ hiện ngay bên dưới.<br>
+    <small>Dùng tốt nhất trên Google Chrome hoặc Microsoft Edge.</small>
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const log = $('log'), toggle = $('toggle'), dot = $('dot'), statusText = $('statusText');
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  const segments = []; // {en, vi, time}
+  let listening = false, rec = null, interimRow = null;
+  let interimTimer = null, lastInterimText = '', interimReq = 0;
+
+  const setStatus = (t, live = false) => { statusText.textContent = t; dot.classList.toggle('live', live); };
+
+  // ---------- Translation ----------
+  const cache = new Map();
+  async function translate(text) {
+    text = text.trim();
+    if (!text) return '';
+    if (cache.has(text)) return cache.get(text);
+    let out = '';
+    try {
+      const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=' + encodeURIComponent(text);
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(r.status);
+      const data = await r.json();
+      out = data[0].map((p) => p[0]).join('');
+    } catch (e) {
+      try {
+        const r = await fetch('https://api.mymemory.translated.net/get?langpair=en|vi&q=' + encodeURIComponent(text));
+        const data = await r.json();
+        out = data.responseData.translatedText;
+      } catch (e2) {
+        out = '⚠️ Không dịch được (kiểm tra kết nối mạng)';
+      }
+    }
+    cache.set(text, out);
+    return out;
+  }
+
+  // ---------- Rendering ----------
+  const fmtTime = (d) => d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const nearBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight < 120;
+
+  function makeRow(cls = '') {
+    $('empty')?.remove();
+    const row = document.createElement('div');
+    row.className = 'row ' + cls;
+    row.innerHTML = '<div class="en"></div><div class="vi"></div>';
+    return row;
+  }
+
+  function scroll(stick) { if (stick) log.scrollTop = log.scrollHeight; }
+
+  function showInterim(en) {
+    const stick = nearBottom();
+    if (!interimRow) { interimRow = makeRow('interim'); log.appendChild(interimRow); }
+    interimRow.querySelector('.en').textContent = en;
+    scroll(stick);
+    // Debounced live translation of partial speech
+    clearTimeout(interimTimer);
+    interimTimer = setTimeout(async () => {
+      if (en === lastInterimText) return;
+      lastInterimText = en;
+      const id = ++interimReq;
+      const vi = await translate(en);
+      if (id === interimReq && interimRow) {
+        const s = nearBottom();
+        interimRow.querySelector('.vi').textContent = vi;
+        scroll(s);
+      }
+    }, 350);
+  }
+
+  async function addFinal(en) {
+    en = en.trim();
+    if (!en) return;
+    clearTimeout(interimTimer);
+    interimReq++; lastInterimText = '';
+    const stick = nearBottom();
+    const row = interimRow || makeRow();
+    interimRow = null;
+    row.className = 'row';
+    if (!row.isConnected) log.appendChild(row);
+    const seg = { en, vi: '', time: new Date() };
+    segments.push(seg);
+    row.querySelector('.en').innerHTML = '';
+    const t = document.createElement('span'); t.className = 'time'; t.textContent = fmtTime(seg.time);
+    row.querySelector('.en').append(t, document.createTextNode(en));
+    scroll(stick);
+    seg.vi = await translate(en);
+    const s = nearBottom();
+    row.querySelector('.vi').textContent = seg.vi;
+    scroll(s);
+    if ($('speak').checked) speakVi(seg.vi);
+  }
+
+  function speakVi(text) {
+    if (!('speechSynthesis' in window)) return;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'vi-VN';
+    const v = speechSynthesis.getVoices().find((v) => v.lang.toLowerCase().startsWith('vi'));
+    if (v) u.voice = v;
+    u.rate = 1.1;
+    speechSynthesis.speak(u);
+  }
+
+  // ---------- Speech recognition ----------
+  function start() {
+    if (!SR) {
+      alert('Trình duyệt này không hỗ trợ nhận dạng giọng nói. Hãy dùng Google Chrome hoặc Microsoft Edge.');
+      return;
+    }
+    rec = new SR();
+    rec.lang = $('accent').value;
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+
+    rec.onstart = () => setStatus('Đang nghe… hãy nói tiếng Anh', true);
+    rec.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) addFinal(r[0].transcript);
+        else interim += r[0].transcript;
+      }
+      if (interim.trim()) showInterim(interim.trim());
+    };
+    rec.onerror = (e) => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        listening = false; updateBtn();
+        setStatus('Không có quyền dùng micro. Hãy cho phép micro trong trình duyệt.');
+      } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+        setStatus('Lỗi: ' + e.error + ' — đang thử lại…', listening);
+      }
+    };
+    // Chrome stops after silence / ~60s; restart automatically for continuous listening
+    rec.onend = () => {
+      if (listening) { try { rec.start(); } catch (_) { setTimeout(() => listening && rec.start(), 300); } }
+      else setStatus('Đã dừng');
+    };
+    listening = true; updateBtn();
+    rec.start();
+  }
+
+  function stop() {
+    listening = false; updateBtn();
+    if (rec) rec.stop();
+    if (interimRow) {
+      const en = interimRow.querySelector('.en').textContent;
+      addFinal(en);
+    }
+  }
+
+  function updateBtn() {
+    toggle.textContent = listening ? '■ Dừng' : '▶ Bắt đầu';
+    toggle.classList.toggle('on', listening);
+  }
+
+  // ---------- Controls ----------
+  toggle.onclick = () => (listening ? stop() : start());
+  $('accent').onchange = () => { if (listening) { rec.lang = $('accent').value; rec.stop(); } };
+  const applyFont = () => document.documentElement.style.setProperty('--fs', $('fontsize').value);
+  $('fontsize').onchange = () => { applyFont(); save(); };
+  $('layout').onchange = () => { log.classList.toggle('split', $('layout').value === 'split'); save(); };
+  $('speak').onchange = save;
+
+  $('clear').onclick = () => {
+    if (segments.length && !confirm('Xoá toàn bộ nội dung?')) return;
+    segments.length = 0; interimRow = null;
+    log.innerHTML = '<div class="empty" id="empty">Đã xoá. Bấm <b>▶ Bắt đầu</b> để tiếp tục.</div>';
+  };
+
+  $('download').onclick = () => {
+    if (!segments.length) return alert('Chưa có nội dung để tải.');
+    const txt = segments.map((s) => `[${fmtTime(s.time)}]\nEN: ${s.en}\nVI: ${s.vi}\n`).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain;charset=utf-8' }));
+    a.download = 'ban-dich-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.txt';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && !['INPUT', 'SELECT', 'BUTTON'].includes(document.activeElement.tagName)) {
+      e.preventDefault(); toggle.click();
+    }
+  });
+
+  // Persist preferences
+  function save() {
+    try {
+      localStorage.setItem('dss-prefs', JSON.stringify({
+        fs: $('fontsize').value, layout: $('layout').value, speak: $('speak').checked, accent: $('accent').value,
+      }));
+    } catch (_) {}
+  }
+  $('accent').addEventListener('change', save);
+  try {
+    const p = JSON.parse(localStorage.getItem('dss-prefs') || '{}');
+    if (p.fs) $('fontsize').value = p.fs;
+    if (p.layout) $('layout').value = p.layout;
+    if (p.accent) $('accent').value = p.accent;
+    $('speak').checked = !!p.speak;
+  } catch (_) {}
+  applyFont();
+  log.classList.toggle('split', $('layout').value === 'split');
+  if (!SR) setStatus('⚠️ Trình duyệt không hỗ trợ nhận dạng giọng nói — hãy dùng Chrome hoặc Edge.');
+  if ('speechSynthesis' in window) speechSynthesis.getVoices();
+})();
+</script>
+</body>
+</html>
